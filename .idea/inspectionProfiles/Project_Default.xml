@@ -1,0 +1,33 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="pandas" />
+          <option value="datasets" />
+          <option value="scikit-learn" />
+          <option value="transformers" />
+          <option value="accelerate" />
+          <option value="sentence-transformers" />
+          <option value="matplotlib" />
+          <option value="seaborn" />
+          <option value="plotly" />
+          <option value="tqdm" />
+          <option value="pyyaml" />
+          <option value="python-dotenv" />
+          <option value="jupyter" />
+          <option value="ipykernel" />
+          <option value="scipy" />
+          <option value="tensorboard" />
+          <option value="wandb" />
+          <option value="jsonschema" />
+          <option value="imbalanced-learn" />
+          <option value="langgraph" />
+          <option value="langchain-core" />
+          <option value="groq" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

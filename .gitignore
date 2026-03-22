@@ -1,0 +1,7 @@
+﻿.env
+.venv/
+__pycache__/
+*.pyc
+token.txt
+debug_rag.py
+livekit_1.9.12_windows_amd64/
