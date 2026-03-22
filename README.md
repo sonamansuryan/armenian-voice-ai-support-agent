@@ -4,7 +4,7 @@
 ![LiveKit](https://img.shields.io/badge/LiveKit-v1.5.0-00D1FF?style=flat&logo=livekit&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-4CAF50?style=flat)
 ![STT](https://img.shields.io/badge/STT-Whisper-FF9800?style=flat)
-![LLM](https://img.shields.io/badge/LLM-GPT--4o--mini-9C27B0?style=flat)
+![LLM](https://img.shields.io/badge/LLM-GPT--4o-9C27B0?style=flat)
 ![TTS](https://img.shields.io/badge/TTS-OpenAI-F44336?style=flat)
 ![RAG](https://img.shields.io/badge/RAG-ChromaDB-009688?style=flat)
 ![Status](https://img.shields.io/badge/Status-Active-607D8B?style=flat)
@@ -51,7 +51,7 @@ LiveKit Server (self-hosted)
 Agent (LiveKit Agents v1.5.0)
     ├── STT  →  OpenAI Whisper-1  (language: hy)
     ├── VAD  →  Silero VAD
-    ├── LLM  →  GPT-4o-mini  +  RAG (ChromaDB)
+    ├── LLM  →  GPT-4o  +  RAG (ChromaDB)
     └── TTS  →  OpenAI TTS-1  (voice: nova)
 ```
 
@@ -93,14 +93,20 @@ Deepgram nova-2 was evaluated but does not support Armenian (`hy`) for streaming
 ### VAD — Silero VAD
 Silero VAD runs locally with no external API calls and provides reliable end-of-speech detection. It is the recommended default for LiveKit Agents when not using LiveKit Cloud's adaptive interruption detection.
 
-### LLM — GPT-4o-mini
-GPT-4o-mini provides a good balance between response quality and latency. It reliably follows Armenian-language system instructions, respects guardrails, and handles RAG-injected context well. The model is cost-efficient, which is important given the $5 budget constraint.
+### LLM — GPT-4o and GPT-4o-mini
+Two OpenAI models are used for different purposes:
+
+- **GPT-4o** — main conversation model. Handles the full system prompt in Armenian, respects guardrails, and generates natural responses grounded in RAG context. GPT-4o was chosen over GPT-4o-mini for the main agent because it follows complex Armenian-language instructions more reliably.
+- **GPT-4o-mini** — query rewriting. Before each RAG lookup, the user's transcribed question is normalized (case suffixes stripped, city names standardized) using a lightweight GPT-4o-mini call. This adds ~50ms latency but significantly improves retrieval accuracy for location-specific queries.
+- **GPT-4o** (offline) — data reformatting. Used once by `reformat_data.py` to convert raw scraped text into clean, natural Armenian sentences suitable for a voice agent.
 
 ### TTS — OpenAI TTS-1 (voice: nova)
 OpenAI TTS-1 with the `nova` voice produces natural-sounding Armenian speech. ElevenLabs (`eleven_multilingual_v2`) is supported as a configurable alternative via `.env` for higher expressiveness if needed.
 
 ### RAG — ChromaDB
-Bank data is chunked and indexed into a local ChromaDB vector store. At runtime, the agent retrieves the top-5 most semantically relevant chunks for each user query and injects them as context into the LLM prompt. This ensures the agent answers only from official bank data and never fabricates information.
+Bank data is chunked and indexed into a local ChromaDB vector store. At runtime, the agent retrieves the most relevant chunks for each user query and injects them as context into the LLM prompt. This ensures the agent answers only from official bank data and never fabricates information.
+
+For branch queries, semantic search is bypassed entirely in favour of keyword scoring, because branch records share nearly identical structure and embeddings cannot distinguish between cities reliably.
 
 ### Scraping Strategy
 Each bank required a different scraping approach:
@@ -167,7 +173,7 @@ armenian-voice-ai-support-agent/
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/sonamansuryan/armenian-voice-ai-support-agent
 cd armenian-voice-ai-support-agent
 ```
 
@@ -208,7 +214,7 @@ LIVEKIT_API_KEY=devkey
 LIVEKIT_API_SECRET=devsecret-armenian-bank-agent
 
 CHROMA_DB_PATH=chroma_db
-BANK_DATA_PATH=bank_data_final.json
+BANK_DATA_PATH=bank_data_clean.json
 
 # STT provider: openai (default) or deepgram
 STT_PROVIDER=openai
@@ -245,7 +251,7 @@ python reformat_data.py --input bank_data_final.json --output bank_data_clean.js
 python -m rag.indexer --data bank_data_clean.json --db chroma_db
 ```
 
-> The  directory and  are already included in the repository with pre-built data, so you can skip this step and go directly to running the agent.
+> `chroma_db/` and `bank_data_clean.json` are already included in the repository with pre-built data, so you can skip this step and go directly to running the agent.
 
 ---
 
@@ -315,14 +321,14 @@ print('Token saved to token.txt')
 
 ## Example Questions to Test
 
-| Topic | Example (Armenian)                                    |
-|---|-------------------------------------------------------|
-| Branches | «Ինեկոբանկի մասնաճյուղ կա՞ Երևանում»                  |
-| Branch hours | «Աշխատանքային ժամերը կասե՞ք»                          |
+| Topic | Example (Armenian) |
+|---|---|
+| Branches | «Ինեկոբանկի մասնաճյուղ կա՞ Երևանում» |
+| Branch hours | «Աշխատանքային ժամերը կասե՞ք» |
 | Credits | «Ամերիաբանկի սպառողական վարկի տոկոսադրույքը որքա՞ն է» |
-| Mortgage | «Հիփոթեքային վարկ եմ ուզում վերցնել»                        |
-| Deposits | «Դոլարով ավանդ կարո՞ղ եմ դնել Արդշինբանկում»          |
-| Off-topic (guardrail) | «Եղանակը ինչպիսի՞ն է այսօր»                           |
+| Mortgage | «Հիփոթեքային վարկ եմ ուզում վերցնել» |
+| Deposits | «Դոլարով ավանդ կարո՞ղ եմ դնել Արդշինբանկում» |
+| Off-topic (guardrail) | «Եղանակը ինչպիսի՞ն է այսօր» |
 
 ---
 
@@ -340,7 +346,8 @@ The system is designed to scale to additional banks with minimal effort:
 4. Re-run the pipeline and re-index:
    ```bash
    python pipeline.py --output bank_data_final.json
-   python -m rag.indexer --data bank_data_final.json --db chroma_db
+   python reformat_data.py --input bank_data_final.json --output bank_data_clean.json
+   python -m rag.indexer --data bank_data_clean.json --db chroma_db
    ```
 
 No other changes to `agent.py` or the RAG layer are required.
@@ -351,7 +358,7 @@ No other changes to `agent.py` or the RAG layer are required.
 
 | Service | Purpose | Required |
 |---|---|---|
-| OpenAI | STT (Whisper-1), LLM (GPT-4o-mini), TTS (TTS-1) | Yes |
+| OpenAI | STT (Whisper-1), LLM (GPT-4o), TTS (TTS-1), Data reformatting (GPT-4o) | Yes |
 | Deepgram | Alternative STT | No |
 | ElevenLabs | Alternative TTS | No |
 
@@ -361,4 +368,4 @@ No other changes to `agent.py` or the RAG layer are required.
 
 **Author:** Sona Mansuryan
 
-**Email:** mansuryansona04@email.com
+**Gmail:** mansuryansona04@gmail.com
